@@ -1,0 +1,119 @@
+import type { GrandLivre, Rgd } from "../model/types";
+
+type ProgressCallback = (current: number, total: number) => void;
+
+let worker: Worker | null = null;
+let readyPromise: Promise<void> | null = null;
+let requestCounter = 0;
+
+const pendingRequests = new Map<
+  number,
+  {
+    resolve: (data: string) => void;
+    reject: (err: Error) => void;
+    onProgress?: ProgressCallback;
+  }
+>();
+
+let onInitError: ((err: string) => void) | null = null;
+
+function getWorker(): Worker {
+  if (worker) return worker;
+
+  const base = import.meta.env.BASE_URL;
+  worker = new Worker(`${base}worker.js`);
+
+  worker.onmessage = (e) => {
+    const msg = e.data;
+    if (msg.type === "ready") {
+      return;
+    }
+    if (msg.type === "error" && msg.requestId == null) {
+      if (onInitError) onInitError(msg.error);
+      return;
+    }
+    if (msg.type === "progress") {
+      const req = pendingRequests.get(msg.requestId);
+      if (req?.onProgress) req.onProgress(msg.current, msg.total);
+      return;
+    }
+    if (msg.type === "result") {
+      const req = pendingRequests.get(msg.requestId);
+      if (req) {
+        pendingRequests.delete(msg.requestId);
+        req.resolve(msg.data);
+      }
+      return;
+    }
+    if (msg.type === "error" && msg.requestId != null) {
+      const req = pendingRequests.get(msg.requestId);
+      if (req) {
+        pendingRequests.delete(msg.requestId);
+        req.reject(new Error(msg.error));
+      }
+      return;
+    }
+  };
+
+  return worker;
+}
+
+export function initPyodide(
+  onProgress?: (status: string) => void
+): Promise<void> {
+  if (readyPromise) return readyPromise;
+
+  readyPromise = new Promise<void>((resolve, reject) => {
+    const w = getWorker();
+    onInitError = (err) => reject(new Error(err));
+
+    const handler = (e: MessageEvent) => {
+      if (e.data.type === "ready") {
+        w.removeEventListener("message", handler);
+        resolve();
+      } else if (e.data.type === "error" && e.data.requestId == null) {
+        w.removeEventListener("message", handler);
+        reject(new Error(e.data.error));
+      }
+    };
+    w.addEventListener("message", handler);
+
+    if (onProgress) onProgress("Chargement de Python...");
+    w.postMessage({ type: "init" });
+  });
+
+  return readyPromise;
+}
+
+function parseFile(
+  module: string,
+  pdfBytes: Uint8Array,
+  onProgress?: ProgressCallback
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const requestId = ++requestCounter;
+    pendingRequests.set(requestId, { resolve, reject, onProgress });
+    getWorker().postMessage(
+      { type: "parse", module, pdfBytes, requestId },
+      [pdfBytes.buffer]
+    );
+  });
+}
+
+export async function parseGrandLivre(
+  pdfBytes: Uint8Array,
+  onProgress?: ProgressCallback
+): Promise<GrandLivre> {
+  await initPyodide();
+  const json = await parseFile("grand_livre", pdfBytes, onProgress);
+  return JSON.parse(json);
+}
+
+export async function parseRgd(
+  pdfBytes: Uint8Array,
+  onProgress?: ProgressCallback
+): Promise<Rgd> {
+  await initPyodide();
+  const json = await parseFile("rgd", pdfBytes, onProgress);
+  return JSON.parse(json);
+}

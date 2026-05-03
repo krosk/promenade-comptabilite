@@ -1,0 +1,13 @@
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+table {
+  border-spacing: 0;
+}
+
+tr:hover {
+  background-color: #f8fafc;
+}
