@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { FileUpload } from "./components/FileUpload";
 import { LedgerView } from "./components/LedgerView";
 import { RgdView } from "./components/RgdView";
-import { initPyodide, parseGrandLivre, parseRgd } from "./pyodide/bridge";
-import type { GrandLivre, Rgd } from "./model/types";
+import { initPyodide, parseGrandLivre, parseRgd, crossCheck } from "./pyodide/bridge";
+import type { GrandLivre, Rgd, CrossReference, GlRef, RgdRef } from "./model/types";
 
 type Tab = "upload" | "grand_livre" | "rgd";
 
@@ -36,7 +36,12 @@ function App() {
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [grandLivre, setGrandLivre] = useState<GrandLivre | null>(null);
   const [rgd, setRgd] = useState<Rgd | null>(null);
+  const [crossRef, setCrossRef] = useState<CrossReference | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("upload");
+
+  const navSeq = useRef(0);
+  const [glNav, setGlNav] = useState<{ ref: GlRef; seq: number } | null>(null);
+  const [rgdNav, setRgdNav] = useState<{ ref: RgdRef; seq: number } | null>(null);
 
   useEffect(() => {
     initPyodide()
@@ -77,6 +82,24 @@ function App() {
       setProgress(null);
     }
   }, []);
+
+  useEffect(() => {
+    if (!grandLivre || !rgd) return;
+    setCrossRef(null);
+    crossCheck(grandLivre, rgd).then(setCrossRef).catch(console.error);
+  }, [grandLivre, rgd]);
+
+  function navigateToGl(ref: GlRef) {
+    navSeq.current += 1;
+    setGlNav({ ref, seq: navSeq.current });
+    setActiveTab("grand_livre");
+  }
+
+  function navigateToRgd(ref: RgdRef) {
+    navSeq.current += 1;
+    setRgdNav({ ref, seq: navSeq.current });
+    setActiveTab("rgd");
+  }
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "1rem", fontFamily: "system-ui, sans-serif" }}>
@@ -158,10 +181,22 @@ function App() {
       )}
 
       {activeTab === "grand_livre" && grandLivre && (
-        <LedgerView data={grandLivre} />
+        <LedgerView
+          data={grandLivre}
+          xref={crossRef}
+          navigateTo={glNav}
+          onNavigateToRgd={navigateToRgd}
+        />
       )}
 
-      {activeTab === "rgd" && rgd && <RgdView data={rgd} />}
+      {activeTab === "rgd" && rgd && (
+        <RgdView
+          data={rgd}
+          xref={crossRef}
+          navigateTo={rgdNav}
+          onNavigateToGl={navigateToGl}
+        />
+      )}
     </div>
   );
 }

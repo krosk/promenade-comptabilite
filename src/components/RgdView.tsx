@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { Rgd } from "../model/types";
+import { useState, useEffect } from "react";
+import type { Rgd, CrossReference, GlRef, RgdRef } from "../model/types";
 
 function formatNumber(n: number | null): string {
   if (n === null || n === undefined) return "";
@@ -9,9 +9,33 @@ function formatNumber(n: number | null): string {
   });
 }
 
-export function RgdView({ data }: { data: Rgd }) {
+const linkStyle: React.CSSProperties = {
+  cursor: "pointer",
+  color: "#2563eb",
+  fontSize: "0.65rem",
+  padding: "0.1rem 0.3rem",
+  border: "1px solid #93c5fd",
+  borderRadius: "3px",
+  userSelect: "none",
+  whiteSpace: "nowrap",
+  background: "#eff6ff",
+};
+
+function rgdKey(cleIndex: number, acctNumero: string, entryIndex: number) {
+  return `${cleIndex}:${acctNumero}:${entryIndex}`;
+}
+
+interface Props {
+  data: Rgd;
+  xref: CrossReference | null;
+  navigateTo: { ref: RgdRef; seq: number } | null;
+  onNavigateToGl: (ref: GlRef) => void;
+}
+
+export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
   const [expandedCles, setExpandedCles] = useState<Set<string>>(new Set());
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   function toggleCle(key: string) {
     setExpandedCles((prev) => {
@@ -39,6 +63,19 @@ export function RgdView({ data }: { data: Rgd }) {
     setExpandedCles(new Set());
     setExpandedAccounts(new Set());
   }
+
+  useEffect(() => {
+    if (!navigateTo) return;
+    const { cleIndex, acctNumero, entryIndex } = navigateTo.ref;
+    const cle = data.cles[cleIndex];
+    if (!cle) return;
+    setExpandedCles((prev) => new Set([...prev, cle.nom]));
+    setExpandedAccounts((prev) => new Set([...prev, `${cle.nom}::${acctNumero}`]));
+    const id = `rgd-${cleIndex}-${acctNumero}-${entryIndex}`;
+    setHighlightId(id);
+    setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+    setTimeout(() => setHighlightId(null), 1800);
+  }, [navigateTo?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -70,7 +107,7 @@ export function RgdView({ data }: { data: Rgd }) {
           </tr>
         </thead>
         <tbody>
-          {data.cles.map((cle) => {
+          {data.cles.map((cle, ci) => {
             const cleOpen = expandedCles.has(cle.nom);
             return (
               <>
@@ -157,19 +194,44 @@ export function RgdView({ data }: { data: Rgd }) {
                                             <th style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>TTC</th>
                                             <th style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>TVA</th>
                                             <th style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>Ch. loc.</th>
+                                            <th style={{ padding: "0.2rem 0.4rem" }}></th>
                                           </tr>
                                         </thead>
                                         <tbody>
-                                          {acct.entries.map((e, i) => (
-                                            <tr key={i} style={{ borderBottom: "1px solid #bfdbfe" }}>
-                                              <td style={{ padding: "0.2rem 0.4rem", whiteSpace: "nowrap" }}>{e.date}</td>
-                                              <td style={{ padding: "0.2rem 0.4rem" }}>{e.libelle}</td>
-                                              <td style={{ padding: "0.2rem 0.4rem" }}>{e.fournisseur}</td>
-                                              <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.montant_ttc)}</td>
-                                              <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.tva)}</td>
-                                              <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.charges_locatives)}</td>
-                                            </tr>
-                                          ))}
+                                          {acct.entries.map((e, ei) => {
+                                            const id = `rgd-${ci}-${acct.numero}-${ei}`;
+                                            const glRef = xref?.rgdToGl[rgdKey(ci, acct.numero, ei)];
+                                            const isHighlighted = highlightId === id;
+                                            return (
+                                              <tr
+                                                key={ei}
+                                                id={id}
+                                                style={{
+                                                  borderBottom: "1px solid #bfdbfe",
+                                                  background: isHighlighted ? "#fef08a" : "transparent",
+                                                  transition: "background 0.4s",
+                                                }}
+                                              >
+                                                <td style={{ padding: "0.2rem 0.4rem", whiteSpace: "nowrap" }}>{e.date}</td>
+                                                <td style={{ padding: "0.2rem 0.4rem" }}>{e.libelle}</td>
+                                                <td style={{ padding: "0.2rem 0.4rem" }}>{e.fournisseur}</td>
+                                                <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.montant_ttc)}</td>
+                                                <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.tva)}</td>
+                                                <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.charges_locatives)}</td>
+                                                <td style={{ padding: "0.2rem 0.4rem" }}>
+                                                  {glRef && (
+                                                    <span
+                                                      onClick={(ev) => { ev.stopPropagation(); onNavigateToGl(glRef); }}
+                                                      title="Voir dans le Grand Livre"
+                                                      style={linkStyle}
+                                                    >
+                                                      GL ↗
+                                                    </span>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
                                         </tbody>
                                       </table>
                                     </td>

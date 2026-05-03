@@ -59,3 +59,19 @@ export interface Rgd {
   cles: RgdCle[];
   total_depenses: number;
 }
+
+export interface GlRef {
+  acctNumero: string;
+  entryIndex: number;
+}
+
+export interface RgdRef {
+  cleIndex: number;
+  acctNumero: string;
+  entryIndex: number;
+}
+
+export interface CrossReference {
+  rgdToGl: Record<string, GlRef>;
+  glToRgd: Record<string, RgdRef>;
+}

@@ -1,4 +1,4 @@
-import type { GrandLivre, Rgd } from "../model/types";
+import type { GrandLivre, Rgd, CrossReference } from "../model/types";
 
 type ProgressCallback = (current: number, total: number) => void;
 
@@ -116,4 +116,34 @@ export async function parseRgd(
   await initPyodide();
   const json = await parseFile("rgd", pdfBytes, onProgress);
   return JSON.parse(json);
+}
+
+export async function crossCheck(
+  gl: GrandLivre,
+  rgd: Rgd
+): Promise<CrossReference> {
+  await initPyodide();
+  const json = await new Promise<string>((resolve, reject) => {
+    const requestId = ++requestCounter;
+    pendingRequests.set(requestId, { resolve, reject });
+    getWorker().postMessage({
+      type: "crosscheck",
+      glJson: JSON.stringify(gl),
+      rgdJson: JSON.stringify(rgd),
+      requestId,
+    });
+  });
+  const raw = JSON.parse(json) as {
+    rgd_to_gl: Record<string, { acct_numero: string; entry_index: number }>;
+    gl_to_rgd: Record<string, { cle_index: number; acct_numero: string; entry_index: number }>;
+  };
+  const rgdToGl: CrossReference["rgdToGl"] = {};
+  const glToRgd: CrossReference["glToRgd"] = {};
+  for (const [k, v] of Object.entries(raw.rgd_to_gl)) {
+    rgdToGl[k] = { acctNumero: v.acct_numero, entryIndex: v.entry_index };
+  }
+  for (const [k, v] of Object.entries(raw.gl_to_rgd)) {
+    glToRgd[k] = { cleIndex: v.cle_index, acctNumero: v.acct_numero, entryIndex: v.entry_index };
+  }
+  return { rgdToGl, glToRgd };
 }

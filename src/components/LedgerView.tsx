@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { GrandLivre } from "../model/types";
+import { useState, useEffect } from "react";
+import type { GrandLivre, CrossReference, RgdRef, GlRef } from "../model/types";
 
 function formatNumber(n: number | null): string {
   if (n === null || n === undefined) return "";
@@ -9,8 +9,32 @@ function formatNumber(n: number | null): string {
   });
 }
 
-export function LedgerView({ data }: { data: GrandLivre }) {
+const linkStyle: React.CSSProperties = {
+  cursor: "pointer",
+  color: "#2563eb",
+  fontSize: "0.65rem",
+  padding: "0.1rem 0.3rem",
+  border: "1px solid #93c5fd",
+  borderRadius: "3px",
+  userSelect: "none",
+  whiteSpace: "nowrap",
+  background: "#eff6ff",
+};
+
+function glKey(acctNumero: string, entryIndex: number) {
+  return `${acctNumero}:${entryIndex}`;
+}
+
+interface Props {
+  data: GrandLivre;
+  xref: CrossReference | null;
+  navigateTo: { ref: GlRef; seq: number } | null;
+  onNavigateToRgd: (ref: RgdRef) => void;
+}
+
+export function LedgerView({ data, xref, navigateTo, onNavigateToRgd }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   function toggle(numero: string) {
     setExpanded((prev) => {
@@ -27,6 +51,16 @@ export function LedgerView({ data }: { data: GrandLivre }) {
   function collapseAll() {
     setExpanded(new Set());
   }
+
+  useEffect(() => {
+    if (!navigateTo) return;
+    const { acctNumero, entryIndex } = navigateTo.ref;
+    setExpanded((prev) => new Set([...prev, acctNumero]));
+    const id = `gl-${acctNumero}-${entryIndex}`;
+    setHighlightId(id);
+    setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+    setTimeout(() => setHighlightId(null), 1800);
+  }, [navigateTo?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -109,22 +143,47 @@ export function LedgerView({ data }: { data: GrandLivre }) {
                             <th style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>Débit</th>
                             <th style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>Crédit</th>
                             <th style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>Solde</th>
+                            <th style={{ padding: "0.2rem 0.5rem" }}></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {acct.entries.map((e, i) => (
-                            <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                              <td style={{ padding: "0.2rem 0.5rem", whiteSpace: "nowrap" }}>{e.date}</td>
-                              <td style={{ padding: "0.2rem 0.5rem" }}>{e.journal}</td>
-                              <td style={{ padding: "0.2rem 0.5rem" }}>{e.libelle}</td>
-                              <td style={{ padding: "0.2rem 0.5rem" }}>{e.contre_partie}</td>
-                              <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>{formatNumber(e.debit)}</td>
-                              <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>{formatNumber(e.credit)}</td>
-                              <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>
-                                {formatNumber(e.solde_debiteur ?? e.solde_crediteur)}
-                              </td>
-                            </tr>
-                          ))}
+                          {acct.entries.map((e, i) => {
+                            const id = `gl-${acct.numero}-${i}`;
+                            const rgdRef = xref?.glToRgd[glKey(acct.numero, i)];
+                            const isHighlighted = highlightId === id;
+                            return (
+                              <tr
+                                key={i}
+                                id={id}
+                                style={{
+                                  borderBottom: "1px solid #e2e8f0",
+                                  background: isHighlighted ? "#fef08a" : "transparent",
+                                  transition: "background 0.4s",
+                                }}
+                              >
+                                <td style={{ padding: "0.2rem 0.5rem", whiteSpace: "nowrap" }}>{e.date}</td>
+                                <td style={{ padding: "0.2rem 0.5rem" }}>{e.journal}</td>
+                                <td style={{ padding: "0.2rem 0.5rem" }}>{e.libelle}</td>
+                                <td style={{ padding: "0.2rem 0.5rem" }}>{e.contre_partie}</td>
+                                <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>{formatNumber(e.debit)}</td>
+                                <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>{formatNumber(e.credit)}</td>
+                                <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>
+                                  {formatNumber(e.solde_debiteur ?? e.solde_crediteur)}
+                                </td>
+                                <td style={{ padding: "0.2rem 0.5rem" }}>
+                                  {rgdRef && (
+                                    <span
+                                      onClick={(ev) => { ev.stopPropagation(); onNavigateToRgd(rgdRef); }}
+                                      title="Voir dans le RGD"
+                                      style={linkStyle}
+                                    >
+                                      RGD ↗
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </td>
