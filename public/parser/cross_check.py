@@ -4,6 +4,17 @@ Cross-reference matching between Grand Livre and RGD.
 match(gl, rgd) resolves 1:1 correspondences: an RGD entry and a GL entry
 in the same account, on the same date, with the same montant_ttc (≈ debit).
 
+Match criteria (all three must hold):
+  - Same compte: RgdAccount.numero == Account.numero
+  - Same date: exact string match (DD/MM/YYYY)
+  - Amount: |montant_ttc - gl_entry.debit| < EPSILON (0.005 €)
+    gl_entry.credit is NOT checked — reversals are out of scope.
+
+A pair is included only if each side has exactly one counterpart:
+  - The RGD entry matches exactly one GL entry, AND
+  - That GL entry matches exactly one RGD entry.
+Multi-RGD-to-one-GL splits are detected and excluded, not an error.
+
 Keys used in the result dicts:
   rgd side  →  "{cle_index}:{acct_numero}:{entry_index}"
   gl  side  →  "{acct_numero}:{entry_index}"

@@ -6,6 +6,7 @@ Outil de vérification des comptes d'une copropriété française. Fonctionne en
 
 - **Grand Livre** : import et affichage du grand livre comptable (PDF)
 - **RGD** : import et affichage du relevé général des dépenses (PDF)
+- **Recoupement automatique** : correspondances 1:1 entre écritures RGD et Grand Livre — badge cliquable pour naviguer de l'une à l'autre
 - Validation automatique des totaux et sous-totaux
 
 ## Utilisation
@@ -13,7 +14,7 @@ Outil de vérification des comptes d'une copropriété française. Fonctionne en
 1. Ouvrir l'application dans un navigateur
 2. Attendre le chargement de l'environnement Python (~15s au premier chargement)
 3. Glisser-déposer un PDF (Grand Livre ou RGD) dans la zone prévue
-4. Explorer les comptes, écritures et dépenses
+4. Explorer les comptes, écritures et dépenses ; cliquer les badges « GL ↗ » / « RGD ↗ » pour naviguer entre les deux documents
 
 ## Développement
 
