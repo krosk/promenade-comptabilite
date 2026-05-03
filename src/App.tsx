@@ -5,7 +5,7 @@ import { RgdView } from "./components/RgdView";
 import { initPyodide, parseGrandLivre, parseRgd, crossCheck } from "./pyodide/bridge";
 import type { GrandLivre, Rgd, CrossReference, GlRef, RgdRef } from "./model/types";
 
-type Tab = "upload" | "grand_livre" | "rgd";
+type Tab = "upload" | "grand_livre" | "rgd" | "cote_a_cote";
 
 function ProgressBar({ current, total, label }: { current: number; total: number; label: string }) {
   const pct = total > 0 ? Math.round((current / total) * 100) : 0;
@@ -102,17 +102,17 @@ function App() {
   function navigateToGl(ref: GlRef) {
     navSeq.current += 1;
     setGlNav({ ref, seq: navSeq.current });
-    setActiveTab("grand_livre");
+    if (activeTab !== "cote_a_cote") setActiveTab("grand_livre");
   }
 
   function navigateToRgd(ref: RgdRef) {
     navSeq.current += 1;
     setRgdNav({ ref, seq: navSeq.current });
-    setActiveTab("rgd");
+    if (activeTab !== "cote_a_cote") setActiveTab("rgd");
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "1rem", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ maxWidth: activeTab === "cote_a_cote" ? "none" : 1200, margin: "0 auto", padding: "1rem", fontFamily: "system-ui, sans-serif" }}>
       <h1 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>
         Promenade Comptabilité
       </h1>
@@ -147,13 +147,15 @@ function App() {
           ["upload", "Import"],
           ["grand_livre", "Grand Livre"],
           ["rgd", "RGD"],
+          ["cote_a_cote", "Côte à côte"],
         ] as [Tab, string][]).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             disabled={
               (tab === "grand_livre" && !grandLivre) ||
-              (tab === "rgd" && !rgd)
+              (tab === "rgd" && !rgd) ||
+              (tab === "cote_a_cote" && (!grandLivre || !rgd))
             }
             style={{
               padding: "0.5rem 1rem",
@@ -224,6 +226,27 @@ function App() {
           navigateTo={rgdNav}
           onNavigateToGl={navigateToGl}
         />
+      )}
+
+      {activeTab === "cote_a_cote" && grandLivre && rgd && (
+        <div style={{ display: "flex", gap: "1rem", height: "calc(100vh - 160px)", overflow: "hidden" }}>
+          <div style={{ flex: 1, overflowY: "auto", borderRight: "1px solid #e2e8f0", paddingRight: "0.75rem" }}>
+            <LedgerView
+              data={grandLivre}
+              xref={crossRef}
+              navigateTo={glNav}
+              onNavigateToRgd={navigateToRgd}
+            />
+          </div>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <RgdView
+              data={rgd}
+              xref={crossRef}
+              navigateTo={rgdNav}
+              onNavigateToGl={navigateToGl}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
