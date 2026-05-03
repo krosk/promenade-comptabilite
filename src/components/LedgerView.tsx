@@ -32,6 +32,25 @@ interface Props {
   onNavigateToRgd: (ref: RgdRef) => void;
 }
 
+function findCounterEntryIndex(
+  data: GrandLivre,
+  targetNumero: string,
+  sourceNumero: string,
+  sourceEntry: { date: string | null; debit: number | null; credit: number | null }
+): number | null {
+  const acct = data.accounts.find((a) => a.numero === targetNumero);
+  if (!acct) return null;
+  const idx = acct.entries.findIndex((e) => {
+    if (e.date !== sourceEntry.date) return false;
+    if (e.contre_partie === sourceNumero) return true;
+    const eps = 0.005;
+    const debitFlip = sourceEntry.debit != null && e.credit != null && Math.abs(sourceEntry.debit - e.credit) < eps;
+    const creditFlip = sourceEntry.credit != null && e.debit != null && Math.abs(sourceEntry.credit - e.debit) < eps;
+    return debitFlip || creditFlip;
+  });
+  return idx >= 0 ? idx : null;
+}
+
 export function LedgerView({ data, xref, navigateTo, onNavigateToRgd }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -50,6 +69,14 @@ export function LedgerView({ data, xref, navigateTo, onNavigateToRgd }: Props) {
 
   function collapseAll() {
     setExpanded(new Set());
+  }
+
+  function navigateToEntry(acctNumero: string, entryIndex: number | null) {
+    setExpanded((prev) => new Set([...prev, acctNumero]));
+    const id = entryIndex != null ? `gl-${acctNumero}-${entryIndex}` : `gl-acct-${acctNumero}`;
+    if (entryIndex != null) setHighlightId(id);
+    setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+    if (entryIndex != null) setTimeout(() => setHighlightId(null), 1800);
   }
 
   useEffect(() => {
@@ -100,6 +127,7 @@ export function LedgerView({ data, xref, navigateTo, onNavigateToRgd }: Props) {
               <>
                 <tr
                   key={acct.numero}
+                  id={`gl-acct-${acct.numero}`}
                   onClick={() => toggle(acct.numero)}
                   style={{
                     borderBottom: "1px solid #e2e8f0",
@@ -164,7 +192,20 @@ export function LedgerView({ data, xref, navigateTo, onNavigateToRgd }: Props) {
                                 <td style={{ padding: "0.2rem 0.5rem", whiteSpace: "nowrap" }}>{e.date}</td>
                                 <td style={{ padding: "0.2rem 0.5rem" }}>{e.journal}</td>
                                 <td style={{ padding: "0.2rem 0.5rem" }}>{e.libelle}</td>
-                                <td style={{ padding: "0.2rem 0.5rem" }}>{e.contre_partie}</td>
+                                <td style={{ padding: "0.2rem 0.5rem" }}>
+                                  {e.contre_partie && data.accounts.some((a) => a.numero === e.contre_partie) ? (
+                                    <span
+                                      onClick={(ev) => {
+                                        ev.stopPropagation();
+                                        const idx = findCounterEntryIndex(data, e.contre_partie!, acct.numero, e);
+                                        navigateToEntry(e.contre_partie!, idx);
+                                      }}
+                                      style={linkStyle}
+                                    >
+                                      {e.contre_partie}
+                                    </span>
+                                  ) : e.contre_partie}
+                                </td>
                                 <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>{formatNumber(e.debit)}</td>
                                 <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>{formatNumber(e.credit)}</td>
                                 <td style={{ padding: "0.2rem 0.5rem", textAlign: "right" }}>
