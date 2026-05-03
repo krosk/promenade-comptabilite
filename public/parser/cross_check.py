@@ -137,4 +137,50 @@ def match(gl: dict, rgd: dict) -> dict:
             rgd_to_gl[rk] = {"acct_numero": acct_numero, "entry_index": int(gi_str)}
             gl_to_rgd[gk] = {"cle_index": int(ci_str), "acct_numero": acct_numero, "entry_index": int(ei_str)}
 
+    # Pass 4: propagate RGD links to contre-partie entries.
+    # Group by (src_acct, cp_acct, date, debit, credit) so N:N duplicate groups
+    # are handled together — same balanced pairing strategy as Pass 3.
+    cp_groups: dict[tuple, list[tuple]] = defaultdict(list)
+    for gk, rgd_ref in gl_to_rgd.items():
+        acct_numero, ei_str = gk.split(":")
+        entries = gl_by_account.get(acct_numero, [])
+        if not entries:
+            continue
+        entry = entries[int(ei_str)]
+        cp_numero = entry.get("contre_partie")
+        if not cp_numero:
+            continue
+        sig = (acct_numero, cp_numero, entry.get("date"), entry.get("debit"), entry.get("credit"))
+        cp_groups[sig].append((gk, rgd_ref))
+
+    for (acct_numero, cp_numero, date, debit, credit), sources in cp_groups.items():
+        cp_entries = gl_by_account.get(cp_numero)
+        if not cp_entries:
+            continue
+
+        cp_candidates = []
+        for j, cpe in enumerate(cp_entries):
+            if cpe.get("date") != date:
+                continue
+            cp_gk = _gl_key(cp_numero, j)
+            if cp_gk in gl_to_rgd:
+                continue
+            if cpe.get("contre_partie") == acct_numero:
+                cp_candidates.append(cp_gk)
+                continue
+            cp_debit = cpe.get("debit")
+            cp_credit = cpe.get("credit")
+            debit_flip = debit is not None and cp_credit is not None and abs(debit - cp_credit) < EPSILON
+            credit_flip = credit is not None and cp_debit is not None and abs(credit - cp_debit) < EPSILON
+            if debit_flip or credit_flip:
+                cp_candidates.append(cp_gk)
+
+        if len(sources) != len(cp_candidates):
+            continue  # unbalanced — skip
+
+        for (gk, rgd_ref), cp_gk in zip(
+            sorted(sources, key=lambda x: x[0]), sorted(cp_candidates)
+        ):
+            gl_to_rgd[cp_gk] = rgd_ref
+
     return {"rgd_to_gl": rgd_to_gl, "gl_to_rgd": gl_to_rgd}

@@ -32,13 +32,13 @@ All modules live in `public/parser/` and run via Pyodide in the Web Worker.
 - `grand_livre.parse()` → `{ periode, accounts[], total_debit, total_credit }`
 - `rgd.parse()` → `{ periode, cles[], total_depenses }`
 
-Parsers use position-based text extraction: pdfminer gives text spans with (x, y) coordinates, which are assigned to columns by x-position ranges and grouped into rows by y-proximity. Column boundaries are hardcoded constants tuned to the syndic's PDF layout (Sabimmo/HOMELAND).
+Parsers use position-based text extraction: pdfminer gives text spans with (x, y, y1) coordinates, which are assigned to columns by x-position ranges and grouped into rows by vertical range overlap (spans whose y-extents touch or overlap belong to the same row). Column boundaries are hardcoded constants tuned to the syndic's PDF layout (Sabimmo/HOMELAND).
 
 **Cross-checker** accepts two already-parsed dicts (not raw PDF bytes):
 - `cross_check.match(gl: dict, rgd: dict)` → `{ rgd_to_gl, gl_to_rgd }`
-  - Resolves only 1:1 matches: each side must have exactly one counterpart.
-  - Match criteria: same `compte` (`acct.numero`), same `date` (exact string), `|montant_ttc − gl_entry.debit| < 0.005`.
-  - `gl_entry.credit` is not matched against — reversals are intentionally out of scope.
+  - Resolves 1:1 pairs; also resolves balanced N×N groups (legitimate duplicate entries on the same date/amount).
+  - Match criteria: same `compte` (`acct.numero`), same `date` (exact string), amount sign-sensitive: positive `montant_ttc` matched against `gl_entry.debit`, negative `montant_ttc` matched against `gl_entry.credit` (reimbursements). Tolerance: 0.005 €.
+  - Pass 4: propagates each RGD link to the matched GL entry's `contre_partie` counterpart (if not already matched), so both sides of a double-entry appear linked in the UI.
   - Key format — rgd side: `"{cle_index}:{acct_numero}:{entry_index}"`, gl side: `"{acct_numero}:{entry_index}"`.
 
 ## Testing
