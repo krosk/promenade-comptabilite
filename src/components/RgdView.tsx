@@ -146,8 +146,6 @@ export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
                             <th style={{ padding: "0.25rem 0.5rem" }}>Libellé</th>
                             <th style={{ padding: "0.25rem 0.5rem", textAlign: "center" }}>Lignes</th>
                             <th style={{ padding: "0.25rem 0.5rem", textAlign: "right" }}>Sous-total TTC</th>
-                            <th style={{ padding: "0.25rem 0.5rem", textAlign: "right" }}>TVA</th>
-                            <th style={{ padding: "0.25rem 0.5rem", textAlign: "right" }}>Ch. locatives</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -172,13 +170,11 @@ export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
                                   <td style={{ padding: "0.25rem 0.5rem" }}>{acct.label}</td>
                                   <td style={{ padding: "0.25rem 0.5rem", textAlign: "center" }}>{acct.entries.length}</td>
                                   <td style={{ padding: "0.25rem 0.5rem", textAlign: "right" }}>{formatNumber(acct.sous_total)}</td>
-                                  <td style={{ padding: "0.25rem 0.5rem", textAlign: "right" }}>{formatNumber(acct.sous_total_tva)}</td>
-                                  <td style={{ padding: "0.25rem 0.5rem", textAlign: "right" }}>{formatNumber(acct.sous_total_charges_locatives)}</td>
                                 </tr>
                                 {acctOpen && (
                                   <tr key={`${acctKey}-entries`}>
                                     <td
-                                      colSpan={7}
+                                      colSpan={5}
                                       style={{
                                         padding: "0.4rem 0.4rem 0.6rem 2rem",
                                         background: "#eff6ff",
@@ -192,8 +188,6 @@ export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
                                             <th style={{ padding: "0.2rem 0.4rem" }}>Libellé</th>
                                             <th style={{ padding: "0.2rem 0.4rem" }}>Fournisseur</th>
                                             <th style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>TTC</th>
-                                            <th style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>TVA</th>
-                                            <th style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>Ch. loc.</th>
                                             <th style={{ padding: "0.2rem 0.4rem" }}></th>
                                           </tr>
                                         </thead>
@@ -216,8 +210,6 @@ export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
                                                 <td style={{ padding: "0.2rem 0.4rem" }}>{e.libelle}</td>
                                                 <td style={{ padding: "0.2rem 0.4rem" }}>{e.fournisseur}</td>
                                                 <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.montant_ttc)}</td>
-                                                <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.tva)}</td>
-                                                <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.charges_locatives)}</td>
                                                 <td style={{ padding: "0.2rem 0.4rem" }}>
                                                   {glRef && (
                                                     <span
