@@ -7,8 +7,8 @@ in the same account, on the same date, with the same montant_ttc (≈ debit).
 Match criteria (all three must hold):
   - Same compte: RgdAccount.numero == Account.numero
   - Same date: exact string match (DD/MM/YYYY)
-  - Amount: |montant_ttc - gl_entry.debit| < EPSILON (0.005 €)
-    gl_entry.credit is NOT checked — reversals are out of scope.
+  - Amount: positive montant_ttc → |montant_ttc - gl_entry.debit| < EPSILON (0.005 €)
+            negative montant_ttc → |-montant_ttc - gl_entry.credit| < EPSILON (reimbursements)
 
 A pair is included only if each side has exactly one counterpart:
   - The RGD entry matches exactly one GL entry, AND
@@ -75,8 +75,15 @@ def match(gl: dict, rgd: dict) -> dict:
                 for gi, ge in enumerate(gl_entries):
                     if ge.get("date") != re.get("date"):
                         continue
-                    if not _amounts_match(re.get("montant_ttc"), ge.get("debit")):
+                    montant = re.get("montant_ttc")
+                    if montant is None:
                         continue
+                    if montant >= 0:
+                        if not _amounts_match(montant, ge.get("debit")):
+                            continue
+                    else:
+                        if not _amounts_match(-montant, ge.get("credit")):
+                            continue
 
                     gk = _gl_key(acct["numero"], gi)
                     rgd_candidates.setdefault(rk, []).append(gk)

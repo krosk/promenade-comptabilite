@@ -104,6 +104,20 @@ class TestMatchUnit:
         # GL entry matches 2 RGD entries → excluded from gl_to_rgd
         assert _gl_key("60100000", 0) not in result["gl_to_rgd"]
 
+    def test_negative_montant_matches_gl_credit(self):
+        """Negative RGD amount (reimbursement) matches GL credit, not debit."""
+        gl = _gl([_gl_account("60100000", [_gl_entry("25/06/2025", debit=None, credit=1317.94)])])
+        rgd = _rgd([_rgd_cle([_rgd_account("60100000", [_rgd_entry("25/06/2025", -1317.94)])])])
+        result = match(gl, rgd)
+        assert _rgd_key(0, "60100000", 0) in result["rgd_to_gl"]
+
+    def test_negative_montant_does_not_match_debit(self):
+        """Negative RGD amount must not match a GL debit of the same absolute value."""
+        gl = _gl([_gl_account("60100000", [_gl_entry("25/06/2025", debit=1317.94, credit=None)])])
+        rgd = _rgd([_rgd_cle([_rgd_account("60100000", [_rgd_entry("25/06/2025", -1317.94)])])])
+        result = match(gl, rgd)
+        assert result["rgd_to_gl"] == {}
+
     def test_null_amounts_ignored(self):
         gl = _gl([_gl_account("60100000", [_gl_entry("15/06/2025", None)])])
         rgd = _rgd([_rgd_cle([_rgd_account("60100000", [_rgd_entry("15/06/2025", None)])])])
@@ -176,4 +190,8 @@ class TestMatchIntegration:
             re = rgd_acct["entries"][int(ei)]
             ge = gl_by_account[acct_no][gl_ref["entry_index"]]
             assert re["date"] == ge["date"]
-            assert abs((re["montant_ttc"] or 0) - (ge["debit"] or 0)) < 0.005
+            montant = re["montant_ttc"] or 0
+            if montant >= 0:
+                assert abs(montant - (ge["debit"] or 0)) < 0.005
+            else:
+                assert abs(-montant - (ge["credit"] or 0)) < 0.005
