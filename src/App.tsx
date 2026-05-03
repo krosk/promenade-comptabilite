@@ -99,6 +99,7 @@ function App() {
     crossCheck(grandLivre, rgd).then(setCrossRef).catch(console.error);
   }, [grandLivre, rgd]);
 
+  // In split mode both views are mounted, so updating the nav ref is enough — no tab switch needed.
   function navigateToGl(ref: GlRef) {
     navSeq.current += 1;
     setGlNav({ ref, seq: navSeq.current });

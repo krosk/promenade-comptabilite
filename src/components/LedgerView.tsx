@@ -32,6 +32,8 @@ interface Props {
   onNavigateToRgd: (ref: RgdRef) => void;
 }
 
+// Match criteria (same date required): contre_partie points back to sourceNumero (primary),
+// or debit/credit are swapped within 0.005 € (fallback for entries without back-pointer).
 function findCounterEntryIndex(
   data: GrandLivre,
   targetNumero: string,
@@ -110,7 +112,7 @@ export function LedgerView({ data, xref, navigateTo, onNavigateToRgd }: Props) {
       </div>
 
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-        <thead>
+        <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
           <tr style={{ background: "#f1f5f9", textAlign: "left" }}>
             <th style={{ padding: "0.5rem", width: "1.5rem" }}></th>
             <th style={{ padding: "0.5rem" }}>Compte</th>
@@ -129,24 +131,23 @@ export function LedgerView({ data, xref, navigateTo, onNavigateToRgd }: Props) {
                   key={acct.numero}
                   id={`gl-acct-${acct.numero}`}
                   onClick={() => toggle(acct.numero)}
-                  style={{
-                    borderBottom: "1px solid #e2e8f0",
-                    cursor: "pointer",
-                    background: isOpen ? "#eff6ff" : "transparent",
-                  }}
+                  style={{ cursor: "pointer" }}
                 >
-                  <td style={{ padding: "0.5rem", color: "#94a3b8", fontSize: "0.7rem", userSelect: "none" }}>
-                    {isOpen ? "▼" : "▶"}
-                  </td>
-                  <td style={{ padding: "0.5rem", fontFamily: "monospace" }}>{acct.numero}</td>
-                  <td style={{ padding: "0.5rem" }}>{acct.label}</td>
-                  <td style={{ padding: "0.5rem", textAlign: "center" }}>{acct.entries.length}</td>
-                  <td style={{ padding: "0.5rem", textAlign: "right" }}>
-                    {formatNumber(acct.total_debit + acct.cumul_debit)}
-                  </td>
-                  <td style={{ padding: "0.5rem", textAlign: "right" }}>
-                    {formatNumber(acct.total_credit + acct.cumul_credit)}
-                  </td>
+                  {(() => {
+                    const stickyCell: React.CSSProperties = {
+                      position: "sticky", top: 37, zIndex: 1,
+                      background: isOpen ? "#eff6ff" : "#ffffff",
+                      borderBottom: "1px solid #e2e8f0",
+                    };
+                    return (<>
+                      <td style={{ ...stickyCell, padding: "0.5rem", color: "#94a3b8", fontSize: "0.7rem", userSelect: "none" }}>{isOpen ? "▼" : "▶"}</td>
+                      <td style={{ ...stickyCell, padding: "0.5rem", fontFamily: "monospace" }}>{acct.numero}</td>
+                      <td style={{ ...stickyCell, padding: "0.5rem" }}>{acct.label}</td>
+                      <td style={{ ...stickyCell, padding: "0.5rem", textAlign: "center" }}>{acct.entries.length}</td>
+                      <td style={{ ...stickyCell, padding: "0.5rem", textAlign: "right" }}>{formatNumber(acct.total_debit + acct.cumul_debit)}</td>
+                      <td style={{ ...stickyCell, padding: "0.5rem", textAlign: "right" }}>{formatNumber(acct.total_credit + acct.cumul_credit)}</td>
+                    </>);
+                  })()}
                 </tr>
                 {isOpen && (
                   <tr key={`${acct.numero}-entries`}>
