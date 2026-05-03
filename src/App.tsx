@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { FileUpload } from "./components/FileUpload";
 import { LedgerView } from "./components/LedgerView";
 import { RgdView } from "./components/RgdView";
-import { initPyodide, parseGrandLivre, parseRgd, crossCheck } from "./pyodide/bridge";
-import type { GrandLivre, Rgd, CrossReference, GlRef, RgdRef } from "./model/types";
+import { initPyodide, parseGrandLivre, parseRgd, crossCheck, parseFactures, matchFactures } from "./pyodide/bridge";
+import type { GrandLivre, Rgd, CrossReference, GlRef, RgdRef, Factures, FacturesToRgd } from "./model/types";
 
 type Tab = "upload" | "grand_livre" | "rgd" | "cote_a_cote";
 
@@ -47,6 +47,9 @@ function App() {
   const [grandLivre, setGrandLivre] = useState<GrandLivre | null>(null);
   const [rgd, setRgd] = useState<Rgd | null>(null);
   const [crossRef, setCrossRef] = useState<CrossReference | null>(null);
+  const [factures, setFactures] = useState<Factures | null>(null);
+  const [facturesUrl, setFacturesUrl] = useState<string | null>(null);
+  const [facturesToRgd, setFacturesToRgd] = useState<FacturesToRgd | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("upload");
 
   const navSeq = useRef(0);
@@ -98,6 +101,31 @@ function App() {
     setCrossRef(null);
     crossCheck(grandLivre, rgd).then(setCrossRef).catch(console.error);
   }, [grandLivre, rgd]);
+
+  const handleFactures = useCallback(async (file: File) => {
+    setLoading("Analyse des factures");
+    setProgress(null);
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      const result = await parseFactures(bytes, (current, total) => {
+        setProgress({ current, total });
+      });
+      setFactures(result);
+      setFacturesUrl(URL.createObjectURL(file));
+    } catch (err) {
+      alert(`Erreur lors de l'analyse des factures : ${err}`);
+    } finally {
+      setLoading(null);
+      setProgress(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!rgd || !factures) return;
+    setFacturesToRgd(null);
+    matchFactures(rgd, factures).then(setFacturesToRgd).catch(console.error);
+  }, [rgd, factures]);
 
   // In split mode both views are mounted, so updating the nav ref is enough — no tab switch needed.
   function navigateToGl(ref: GlRef) {
@@ -208,6 +236,35 @@ function App() {
               </button>
             )}
           </div>
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <label
+              style={{
+                display: "block",
+                border: "2px dashed #cbd5e1",
+                borderRadius: 8,
+                padding: "2rem",
+                textAlign: "center",
+                background: "#f8fafc",
+                opacity: !pyodideReady || !!loading ? 0.5 : 1,
+                cursor: !pyodideReady || !!loading ? "not-allowed" : "pointer",
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 600 }}>Export factures</p>
+              <p style={{ margin: "0.5rem 0", color: "#64748b", fontSize: "0.875rem" }}>
+                {facturesUrl ? "Factures chargées ✓" : "Glissez le PDF ici ou cliquez pour parcourir"}
+              </p>
+              <input
+                type="file"
+                accept=".pdf"
+                style={{ display: "none" }}
+                disabled={!pyodideReady || !!loading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFactures(file);
+                }}
+              />
+            </label>
+          </div>
         </div>
       )}
 
@@ -226,6 +283,8 @@ function App() {
           xref={crossRef}
           navigateTo={rgdNav}
           onNavigateToGl={navigateToGl}
+          facturesToRgd={facturesToRgd}
+          facturesUrl={facturesUrl}
         />
       )}
 
@@ -245,6 +304,8 @@ function App() {
               xref={crossRef}
               navigateTo={rgdNav}
               onNavigateToGl={navigateToGl}
+              facturesToRgd={facturesToRgd}
+              facturesUrl={facturesUrl}
             />
           </div>
         </div>

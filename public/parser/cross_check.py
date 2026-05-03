@@ -10,11 +10,17 @@ Match criteria (all three must hold):
   - Amount: positive montant_ttc → |montant_ttc - gl_entry.debit| < EPSILON (0.005 €)
             negative montant_ttc → |-montant_ttc - gl_entry.credit| < EPSILON (reimbursements)
 
-Matching strategy (two passes):
+Matching strategy:
   Pass 2 — strict 1:1: each side has exactly one counterpart.
   Pass 3 — balanced N×N: N RGD entries share the same N GL candidates and vice
     versa (legitimate duplicates on the same date/amount). Paired by sorted key
     order. Unbalanced groups (M RGD → N GL where M ≠ N) are excluded.
+  Pass 4 — contre-partie propagation: for each matched GL entry that has a
+    contre_partie field, find the corresponding counter-entry in that account
+    and stamp it with the same RGD reference (if not already matched). Groups
+    of N matched GL entries with the same contre_partie signature are paired
+    by sorted index, consistent with Pass 3. Only gl_to_rgd is extended;
+    rgd_to_gl is not modified (the 1:1 RGD mapping is preserved).
 
 Keys used in the result dicts:
   rgd side  →  "{cle_index}:{acct_numero}:{entry_index}"

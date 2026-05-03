@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Rgd, CrossReference, GlRef, RgdRef } from "../model/types";
+import type { Rgd, CrossReference, GlRef, RgdRef, FacturesToRgd } from "../model/types";
 
 function formatNumber(n: number | null): string {
   if (n === null || n === undefined) return "";
@@ -30,12 +30,15 @@ interface Props {
   xref: CrossReference | null;
   navigateTo: { ref: RgdRef; seq: number } | null;
   onNavigateToGl: (ref: GlRef) => void;
+  facturesToRgd: FacturesToRgd | null;
+  facturesUrl: string | null;
 }
 
-export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
+export function RgdView({ data, xref, navigateTo, onNavigateToGl, facturesToRgd, facturesUrl }: Props) {
   const [expandedCles, setExpandedCles] = useState<Set<string>>(new Set());
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [invoicePage, setInvoicePage] = useState<number | null>(null);
 
   function toggleCle(key: string) {
     setExpandedCles((prev) => {
@@ -79,6 +82,36 @@ export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
 
   return (
     <div>
+      {facturesUrl && (
+        <div
+          onClick={() => setInvoicePage(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            background: "rgba(0,0,0,0.55)",
+            display: invoicePage != null ? "flex" : "none",
+            alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative", width: "90vw", height: "90vh",
+              background: "#fff", borderRadius: 8, overflow: "hidden",
+              display: "flex", flexDirection: "column",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.4rem 0.75rem", borderBottom: "1px solid #e2e8f0", flexShrink: 0 }}>
+              <span style={{ fontSize: "0.875rem", color: "#475569" }}>Facture — page {invoicePage}</span>
+              <button onClick={() => setInvoicePage(null)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "1.1rem", color: "#64748b", lineHeight: 1 }}>✕</button>
+            </div>
+            <iframe
+              src={invoicePage != null ? `${facturesUrl}#page=${invoicePage}` : undefined}
+              style={{ flex: 1, border: "none", width: "100%" }}
+              title="Facture"
+            />
+          </div>
+        </div>
+      )}
       <h3>
         Relevé Général des Dépenses — {data.periode.from} au {data.periode.to}
       </h3>
@@ -198,6 +231,7 @@ export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
                                           {acct.entries.map((e, ei) => {
                                             const id = `rgd-${ci}-${acct.numero}-${ei}`;
                                             const glRef = xref?.rgdToGl[rgdKey(ci, acct.numero, ei)];
+                                            const facturePage = facturesToRgd?.[rgdKey(ci, acct.numero, ei)];
                                             const isHighlighted = highlightId === id;
                                             return (
                                               <tr
@@ -213,7 +247,7 @@ export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
                                                 <td style={{ padding: "0.2rem 0.4rem" }}>{e.libelle}</td>
                                                 <td style={{ padding: "0.2rem 0.4rem" }}>{e.fournisseur}</td>
                                                 <td style={{ padding: "0.2rem 0.4rem", textAlign: "right" }}>{formatNumber(e.montant_ttc)}</td>
-                                                <td style={{ padding: "0.2rem 0.4rem" }}>
+                                                <td style={{ padding: "0.2rem 0.4rem", whiteSpace: "nowrap", display: "flex", gap: "0.25rem" }}>
                                                   {glRef && (
                                                     <span
                                                       onClick={(ev) => { ev.stopPropagation(); onNavigateToGl(glRef); }}
@@ -221,6 +255,15 @@ export function RgdView({ data, xref, navigateTo, onNavigateToGl }: Props) {
                                                       style={linkStyle}
                                                     >
                                                       GL ↗
+                                                    </span>
+                                                  )}
+                                                  {facturePage != null && facturesUrl && (
+                                                    <span
+                                                      onClick={(ev) => { ev.stopPropagation(); setInvoicePage(facturePage); }}
+                                                      title={`Facture page ${facturePage}`}
+                                                      style={linkStyle}
+                                                    >
+                                                      Facture ↗
                                                     </span>
                                                   )}
                                                 </td>

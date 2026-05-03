@@ -1,4 +1,4 @@
-import type { GrandLivre, Rgd, CrossReference } from "../model/types";
+import type { GrandLivre, Rgd, CrossReference, Factures, FacturesToRgd } from "../model/types";
 
 type ProgressCallback = (current: number, total: number) => void;
 
@@ -119,6 +119,37 @@ export async function parseRgd(
   await initPyodide();
   const json = await parseFile("rgd", pdfBytes, onProgress);
   return JSON.parse(json);
+}
+
+/** Parses a factures PDF (invoice summary). Transfers pdfBytes ownership to the worker (zero-copy). */
+export async function parseFactures(
+  pdfBytes: Uint8Array,
+  onProgress?: ProgressCallback
+): Promise<Factures> {
+  await initPyodide();
+  const json = await parseFile("factures", pdfBytes, onProgress);
+  return JSON.parse(json);
+}
+
+
+/** Matches already-parsed factures entries to RGD entries. Returns { rgdKey → page number }. */
+export async function matchFactures(
+  rgd: Rgd,
+  factures: Factures
+): Promise<FacturesToRgd> {
+  await initPyodide();
+  const json = await new Promise<string>((resolve, reject) => {
+    const requestId = ++requestCounter;
+    pendingRequests.set(requestId, { resolve, reject });
+    getWorker().postMessage({
+      type: "match_factures",
+      rgdJson: JSON.stringify(rgd),
+      facturesJson: JSON.stringify(factures),
+      requestId,
+    });
+  });
+  const raw = JSON.parse(json) as { rgd_to_page: Record<string, number> };
+  return raw.rgd_to_page;
 }
 
 /**

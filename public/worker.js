@@ -15,6 +15,13 @@
  *   { type: "crosscheck", glJson: string, rgdJson: string, requestId: number }
  *     → calls cross_check.match(gl, rgd) on already-parsed dicts (not raw bytes).
  *     ← { type: "result", requestId, data: string } or { type: "error", requestId, error }.
+ *
+ *   { type: "parse", module: "factures", pdfBytes: Uint8Array, requestId: number }
+ *     → calls factures.parse(bytes), returns JSON string.
+ *
+ *   { type: "match_factures", rgdJson: string, facturesJson: string, requestId: number }
+ *     → calls factures.match(rgd, factures) on already-parsed dicts.
+ *     ← { type: "result", requestId, data: string } or { type: "error", requestId, error }.
  */
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js");
 
@@ -30,7 +37,7 @@ await micropip.install("pdfminer.six")
 
   const base = self.location.href.replace(/worker\.js$/, "");
 
-  for (const name of ["utils", "grand_livre", "rgd", "cross_check"]) {
+  for (const name of ["utils", "grand_livre", "rgd", "cross_check", "factures"]) {
     const resp = await fetch(`${base}parser/${name}.py`);
     const code = await resp.text();
     pyodide.globals.set("__module_code__", code);
@@ -74,8 +81,21 @@ json.dumps(cross_check.match(gl, rgd), ensure_ascii=False)
   self.postMessage({ type: "result", requestId, data: jsonStr });
 }
 
+
+async function matchFactures(rgdJson, facturesJson, requestId) {
+  pyodide.globals.set("rgd_json", rgdJson);
+  pyodide.globals.set("factures_json", facturesJson);
+  const jsonStr = await pyodide.runPythonAsync(`
+import json, factures
+rgd      = json.loads(rgd_json)
+fact     = json.loads(factures_json)
+json.dumps(factures.match(rgd, fact), ensure_ascii=False)
+`);
+  self.postMessage({ type: "result", requestId, data: jsonStr });
+}
+
 self.onmessage = async (e) => {
-  const { type, module, pdfBytes, glJson, rgdJson, requestId } = e.data;
+  const { type, module, pdfBytes, glJson, rgdJson, facturesJson, page, requestId } = e.data;
   if (type === "init") {
     try {
       await init();
@@ -91,6 +111,12 @@ self.onmessage = async (e) => {
   } else if (type === "crosscheck") {
     try {
       await crossCheck(glJson, rgdJson, requestId);
+    } catch (err) {
+      self.postMessage({ type: "error", requestId, error: String(err) });
+    }
+  } else if (type === "match_factures") {
+    try {
+      await matchFactures(rgdJson, facturesJson, requestId);
     } catch (err) {
       self.postMessage({ type: "error", requestId, error: String(err) });
     }

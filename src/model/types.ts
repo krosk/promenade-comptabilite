@@ -77,3 +77,18 @@ export interface CrossReference {
   rgdToGl: Record<string, GlRef>;
   glToRgd: Record<string, RgdRef>;
 }
+
+export interface FactureEntry {
+  cle: string | null;
+  compte: string;
+  date: string;
+  description: string | null;
+  page: number | null;
+}
+
+export interface Factures {
+  entries: FactureEntry[];
+}
+
+// rgdKey ("cle_index:compte:entry_index") → PDF page number
+export type FacturesToRgd = Record<string, number>;
