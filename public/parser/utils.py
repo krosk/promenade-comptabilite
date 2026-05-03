@@ -49,6 +49,22 @@ def extract_spans_from_page(page) -> list[dict]:
 
 
 def group_spans_by_row(spans: list[dict], y_tolerance: float = 4.0) -> list[dict]:
+    """Group text spans into logical rows by vertical proximity.
+
+    Uses chaining: each accepted span updates the reference y, so spans are
+    compared to the previous span's y, not the row's first span's y. This is
+    required because multi-line libellés cause amounts to be vertically centred
+    between two text lines (~4pt from each), which would miss them if anchored
+    to the first span. See docs/decisions/002-position-based-parsing.md.
+
+    Args:
+        spans: List of {"x", "y", "text"} dicts, unsorted.
+        y_tolerance: Maximum vertical distance (pts) to stay in the same row.
+
+    Returns:
+        List of {"y", "spans": [...]} row dicts, ordered top-to-bottom.
+        Spans within each row are ordered left-to-right by x.
+    """
     spans.sort(key=lambda s: (-s["y"], s["x"]))
 
     rows = []

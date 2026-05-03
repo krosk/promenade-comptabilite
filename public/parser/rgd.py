@@ -63,6 +63,48 @@ def _full_row_text(row: dict) -> str:
 
 
 def parse(pdf_bytes: bytes, progress_cb=None) -> dict:
+    """Parse a Relevé Général des Dépenses PDF and return structured expense data.
+
+    Args:
+        pdf_bytes: Raw PDF bytes.
+        progress_cb: Optional callable(current_page, total_pages).
+
+    Returns:
+        {
+          "periode": {"from": "DD/MM/YYYY", "to": "DD/MM/YYYY"},
+          "cles": [
+            {
+              "nom": str,    # e.g. "CHARGES GENERALES", "BATIMENT A"
+              "numero": int, # distribution key number (1, 10, 11, ...)
+              "accounts": [
+                {
+                  "numero": str,   # 8-digit account number
+                  "label": str,
+                  "entries": [...],  # see entry shape below
+                  "sous_total": float,
+                  "sous_total_tva": float,
+                  "sous_total_charges_locatives": float,
+                }
+              ],
+              "total": float,
+            }
+          ],
+          "total_depenses": float,  # sum of all cle totals
+        }
+
+    Entry shape:
+        {
+          "libelle": str | None,
+          "montant_ttc": float | None,          # amount incl. tax
+          "charges_locatives": float | None,    # portion chargeable to tenants
+          "tva": float | None,                  # VAT amount
+          "date": str | None,                   # "DD/MM/YYYY"
+          "fournisseur": str | None,            # supplier name
+        }
+
+    Column boundaries are tuned to Sabimmo/HOMELAND PDF layout.
+    See docs/decisions/002-position-based-parsing.md.
+    """
     pages = extract_pages_from_pdf(pdf_bytes)
     total_pages = len(pages)
 

@@ -62,6 +62,49 @@ def _full_row_text(row: dict) -> str:
 
 
 def parse(pdf_bytes: bytes, progress_cb=None) -> dict:
+    """Parse a Grand Livre PDF and return structured accounting data.
+
+    Args:
+        pdf_bytes: Raw PDF bytes.
+        progress_cb: Optional callable(current_page, total_pages). Called
+            after each page is processed. May be a JS proxy in Pyodide.
+
+    Returns:
+        {
+          "periode": {"from": "DD/MM/YYYY", "to": "DD/MM/YYYY"},
+          "accounts": [
+            {
+              "numero": str,          # 8-digit account number
+              "label": str,
+              "classe": str,          # first 3 digits of numero
+              "cumul_debit": float,   # opening balance debit (from prior period)
+              "cumul_credit": float,  # opening balance credit (from prior period)
+              "entries": [...],       # see entry shape below
+              "total_debit": float,   # sum of debit entries this period
+              "total_credit": float,  # sum of credit entries this period
+              "total_entry_count": int  # as stated in PDF footer
+            }
+          ],
+          "total_debit": float,   # grand total across all accounts
+          "total_credit": float,  # must equal total_debit
+        }
+
+    Entry shape:
+        {
+          "journal": str,              # "OD", "BQ", "AC", "AN", "EX", "RG"
+          "date": str,                 # "DD/MM/YYYY"
+          "contre_partie": str | None, # counterpart account number
+          "libelle": str | None,
+          "numero_piece": str | None,
+          "debit": float | None,
+          "credit": float | None,
+          "solde_debiteur": float | None,   # running balance (debit side)
+          "solde_crediteur": float | None,  # running balance (credit side)
+        }
+
+    Column boundaries and y-tolerance are tuned to Sabimmo/HOMELAND PDF layout.
+    See docs/decisions/002-position-based-parsing.md.
+    """
     pages = extract_pages_from_pdf(pdf_bytes)
     total_pages = len(pages)
 
