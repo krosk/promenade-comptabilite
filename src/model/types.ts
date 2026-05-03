@@ -22,6 +22,7 @@ export interface Account {
   total_entry_count: number;
 }
 
+// Serialization schema for JSON export/import — field renames are breaking changes for exported files.
 export interface GrandLivre {
   periode: { from: string; to: string };
   accounts: Account[];
@@ -54,6 +55,7 @@ export interface RgdCle {
   total: number;
 }
 
+// Serialization schema for JSON export/import — field renames are breaking changes for exported files.
 export interface Rgd {
   periode: { from: string; to: string };
   cles: RgdCle[];

@@ -5,14 +5,14 @@ Browser-based tool for parsing and cross-checking accounting documents from a Fr
 ## Architecture
 
 ```
-PDF bytes → Web Worker → Pyodide (pdfminer.six) → parsed JSON ─┐
-                                                                  ├→ React UI
+PDF bytes → Web Worker → Pyodide (pdfminer.six) → parsed JSON ──┐
+Pre-parsed JSON (exported from a prior session) ─────────────────┤→ React UI
 Parsed GL + RGD dicts → Pyodide (cross_check.match) → xref JSON ┘
 ```
 
 - **Python parsers** (`public/parser/`): own all PDF parsing and data logic. Run in a Web Worker via Pyodide.
-- **React UI** (`src/`): thin display layer. Receives JSON from Python, renders tables. No business logic.
-- **Bridge** (`src/pyodide/bridge.ts`): manages Web Worker communication. Main thread never runs Python.
+- **React UI** (`src/`): thin display layer. Renders tables; no business logic. Accepts either Pyodide-produced JSON or a pre-parsed JSON file uploaded directly (bypassing Pyodide for the parse step). Can export parsed data as JSON for re-import on a future session.
+- **Bridge** (`src/pyodide/bridge.ts`): manages Web Worker communication. Main thread never runs Python. Cross-check always runs via Pyodide even when both documents were loaded from JSON.
 
 ## Canonical vocabulary
 

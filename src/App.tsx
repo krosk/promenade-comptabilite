@@ -29,6 +29,16 @@ function ProgressBar({ current, total, label }: { current: number; total: number
   );
 }
 
+function downloadJson(data: object, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function App() {
   const [pyodideReady, setPyodideReady] = useState(false);
   const [pyodideError, setPyodideError] = useState<string | null>(null);
@@ -167,15 +177,33 @@ function App() {
             <FileUpload
               label="Grand Livre"
               onFileSelected={handleGrandLivre}
+              onJsonSelected={(data) => { setGrandLivre(data as GrandLivre); setActiveTab("grand_livre"); }}
               disabled={!pyodideReady || !!loading}
             />
+            {grandLivre && (
+              <button
+                onClick={() => downloadJson(grandLivre, "grand_livre.json")}
+                style={{ marginTop: "0.5rem", width: "100%", padding: "0.4rem", cursor: "pointer" }}
+              >
+                Télécharger JSON
+              </button>
+            )}
           </div>
           <div style={{ flex: 1, minWidth: 280 }}>
             <FileUpload
               label="Relevé Général des Dépenses"
               onFileSelected={handleRgd}
+              onJsonSelected={(data) => { setRgd(data as Rgd); setActiveTab("rgd"); }}
               disabled={!pyodideReady || !!loading}
             />
+            {rgd && (
+              <button
+                onClick={() => downloadJson(rgd, "rgd.json")}
+                style={{ marginTop: "0.5rem", width: "100%", padding: "0.4rem", cursor: "pointer" }}
+              >
+                Télécharger JSON
+              </button>
+            )}
           </div>
         </div>
       )}

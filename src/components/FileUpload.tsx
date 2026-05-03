@@ -1,22 +1,30 @@
 import { useCallback, useState } from "react";
 
+// disabled gates PDF processing only; onJsonSelected fires regardless (no Pyodide needed for JSON).
 interface FileUploadProps {
   label: string;
   onFileSelected: (bytes: Uint8Array) => void;
+  onJsonSelected?: (data: unknown) => void;
   disabled?: boolean;
 }
 
-export function FileUpload({ label, onFileSelected, disabled }: FileUploadProps) {
+export function FileUpload({ label, onFileSelected, onJsonSelected, disabled }: FileUploadProps) {
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
       setFileName(file.name);
-      const buffer = await file.arrayBuffer();
-      onFileSelected(new Uint8Array(buffer));
+      if (file.name.endsWith(".json")) {
+        const text = await file.text();
+        onJsonSelected?.(JSON.parse(text));
+      } else {
+        if (disabled) return;
+        const buffer = await file.arrayBuffer();
+        onFileSelected(new Uint8Array(buffer));
+      }
     },
-    [onFileSelected]
+    [onFileSelected, onJsonSelected, disabled]
   );
 
   const handleDrop = useCallback(
@@ -24,7 +32,7 @@ export function FileUpload({ label, onFileSelected, disabled }: FileUploadProps)
       e.preventDefault();
       setDragOver(false);
       const file = e.dataTransfer.files[0];
-      if (file?.type === "application/pdf") handleFile(file);
+      if (file?.type === "application/pdf" || file?.name?.endsWith(".json")) handleFile(file);
     },
     [handleFile]
   );
@@ -60,11 +68,11 @@ export function FileUpload({ label, onFileSelected, disabled }: FileUploadProps)
         <p style={{ margin: "0.5rem 0", color: "#64748b", fontSize: "0.875rem" }}>
           {fileName
             ? `Fichier : ${fileName}`
-            : "Glissez un PDF ici ou cliquez pour parcourir"}
+            : "Glissez un PDF ou JSON ici ou cliquez pour parcourir"}
         </p>
         <input
           type="file"
-          accept=".pdf"
+          accept=".pdf,.json"
           onChange={handleChange}
           disabled={disabled}
           style={{ display: "none" }}
