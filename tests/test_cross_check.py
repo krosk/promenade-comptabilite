@@ -124,6 +124,34 @@ class TestMatchUnit:
         result = match(gl, rgd)
         assert result["rgd_to_gl"] == {}
 
+    def test_duplicate_entries_matched_in_pairs(self):
+        """N identical RGD entries + N identical GL entries → N 1:1 matches."""
+        gl = _gl([_gl_account("60100000", [
+            _gl_entry("15/06/2025", 500.00),
+            _gl_entry("15/06/2025", 500.00),
+        ])])
+        rgd = _rgd([_rgd_cle([_rgd_account("60100000", [
+            _rgd_entry("15/06/2025", 500.00),
+            _rgd_entry("15/06/2025", 500.00),
+        ])])])
+        result = match(gl, rgd)
+        assert len(result["rgd_to_gl"]) == 2
+        assert len(result["gl_to_rgd"]) == 2
+
+    def test_unbalanced_duplicates_excluded(self):
+        """2 RGD entries matching 3 GL entries → excluded (unbalanced group)."""
+        gl = _gl([_gl_account("60100000", [
+            _gl_entry("15/06/2025", 500.00),
+            _gl_entry("15/06/2025", 500.00),
+            _gl_entry("15/06/2025", 500.00),
+        ])])
+        rgd = _rgd([_rgd_cle([_rgd_account("60100000", [
+            _rgd_entry("15/06/2025", 500.00),
+            _rgd_entry("15/06/2025", 500.00),
+        ])])])
+        result = match(gl, rgd)
+        assert result["rgd_to_gl"] == {}
+
     def test_multiple_cles_same_account_one_match(self):
         """Same account in two clés, only one RGD entry per clé — should still match if 1:1."""
         gl = _gl([_gl_account("60100000", [

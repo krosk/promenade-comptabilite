@@ -10,10 +10,11 @@ Match criteria (all three must hold):
   - Amount: positive montant_ttc → |montant_ttc - gl_entry.debit| < EPSILON (0.005 €)
             negative montant_ttc → |-montant_ttc - gl_entry.credit| < EPSILON (reimbursements)
 
-A pair is included only if each side has exactly one counterpart:
-  - The RGD entry matches exactly one GL entry, AND
-  - That GL entry matches exactly one RGD entry.
-Multi-RGD-to-one-GL splits are detected and excluded, not an error.
+Matching strategy (two passes):
+  Pass 2 — strict 1:1: each side has exactly one counterpart.
+  Pass 3 — balanced N×N: N RGD entries share the same N GL candidates and vice
+    versa (legitimate duplicates on the same date/amount). Paired by sorted key
+    order. Unbalanced groups (M RGD → N GL where M ≠ N) are excluded.
 
 Keys used in the result dicts:
   rgd side  →  "{cle_index}:{acct_numero}:{entry_index}"
@@ -113,5 +114,27 @@ def match(gl: dict, rgd: dict) -> dict:
             "acct_numero": acct_numero,
             "entry_index": int(ei_str),
         }
+
+    # Pass 3: balanced N×N groups (legitimate duplicate entries)
+    # Group unmatched RGD entries by their frozenset of GL candidates.
+    from collections import defaultdict
+    rgd_groups: dict[frozenset, list[str]] = defaultdict(list)
+    for rk, gks in rgd_candidates.items():
+        if rk not in rgd_to_gl:
+            rgd_groups[frozenset(gks)].append(rk)
+
+    for gk_set, rks in rgd_groups.items():
+        if len(rks) != len(gk_set):
+            continue  # unbalanced — skip
+        # GL side must map back to exactly this RGD group
+        rks_set = frozenset(rks)
+        if not all(frozenset(gl_candidates.get(gk, [])) == rks_set for gk in gk_set):
+            continue
+        # Pair by sorted order — deterministic, arbitrary but consistent
+        for rk, gk in zip(sorted(rks), sorted(gk_set)):
+            ci_str, acct_numero, ei_str = rk.split(":")
+            gi_str = gk.split(":")[1]
+            rgd_to_gl[rk] = {"acct_numero": acct_numero, "entry_index": int(gi_str)}
+            gl_to_rgd[gk] = {"cle_index": int(ci_str), "acct_numero": acct_numero, "entry_index": int(ei_str)}
 
     return {"rgd_to_gl": rgd_to_gl, "gl_to_rgd": gl_to_rgd}
