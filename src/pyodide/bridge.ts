@@ -58,6 +58,7 @@ function getWorker(): Worker {
   return worker;
 }
 
+/** Initialises Pyodide and loads all parser modules. Safe to call multiple times — returns the same promise. */
 export function initPyodide(
   onProgress?: (status: string) => void
 ): Promise<void> {
@@ -100,6 +101,7 @@ function parseFile(
   });
 }
 
+/** Parses a Grand Livre PDF. Transfers pdfBytes ownership to the worker (zero-copy). */
 export async function parseGrandLivre(
   pdfBytes: Uint8Array,
   onProgress?: ProgressCallback
@@ -109,6 +111,7 @@ export async function parseGrandLivre(
   return JSON.parse(json);
 }
 
+/** Parses an RGD PDF. Transfers pdfBytes ownership to the worker (zero-copy). */
 export async function parseRgd(
   pdfBytes: Uint8Array,
   onProgress?: ProgressCallback
@@ -118,6 +121,11 @@ export async function parseRgd(
   return JSON.parse(json);
 }
 
+/**
+ * Computes 1:1 cross-references between already-parsed GL and RGD dicts.
+ * Passes serialised JSON to Python — does not re-parse any PDF.
+ * Returns only confirmed 1:1 pairs; multi-entry splits are excluded.
+ */
 export async function crossCheck(
   gl: GrandLivre,
   rgd: Rgd

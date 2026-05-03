@@ -1,3 +1,21 @@
+/**
+ * Web Worker: runs Pyodide (Python in WASM) for all PDF parsing and cross-checking.
+ * The main thread never executes Python — all computation happens here.
+ *
+ * Message protocol (main → worker):
+ *   { type: "init" }
+ *     → loads Pyodide, installs pdfminer.six, fetches all parser modules.
+ *     ← { type: "ready" } on success, { type: "error", error } on failure.
+ *
+ *   { type: "parse", module: "grand_livre"|"rgd", pdfBytes: Uint8Array, requestId: number }
+ *     → calls module.parse(bytes) in Python, returns JSON string.
+ *     ← { type: "result", requestId, data: string } or { type: "error", requestId, error }.
+ *     ← { type: "progress", requestId, current: number, total: number } during parsing.
+ *
+ *   { type: "crosscheck", glJson: string, rgdJson: string, requestId: number }
+ *     → calls cross_check.match(gl, rgd) on already-parsed dicts (not raw bytes).
+ *     ← { type: "result", requestId, data: string } or { type: "error", requestId, error }.
+ */
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js");
 
 let pyodide = null;

@@ -1,3 +1,15 @@
+"""
+Grand Livre parser.
+
+parse(pdf_bytes) → { periode, accounts[], total_debit, total_credit }
+
+Each account contains entries[]: { date, journal, contre_partie, libelle,
+numero_piece, debit, credit, solde_debiteur, solde_crediteur }.
+
+Uses position-based extraction: pdfminer text spans are assigned to columns
+by x-coordinate ranges (COLUMN_BOUNDARIES) and grouped into rows by y-proximity.
+Column boundaries are hardcoded to the Sabimmo/HOMELAND PDF layout.
+"""
 import re
 from utils import (
     parse_french_number,

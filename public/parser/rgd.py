@@ -1,3 +1,15 @@
+"""
+RGD (Relevé Général des Dépenses) parser.
+
+parse(pdf_bytes) → { periode, cles[], total_depenses }
+
+Each clé de répartition contains accounts[], each account contains entries[]:
+{ date, libelle, fournisseur, montant_ttc, tva, charges_locatives }.
+
+Uses position-based extraction: pdfminer text spans are assigned to columns
+by x-coordinate ranges (RGD_COLUMNS) and grouped into rows by y-proximity.
+Column boundaries are hardcoded to the Sabimmo/HOMELAND PDF layout.
+"""
 import re
 from utils import (
     parse_french_number,
